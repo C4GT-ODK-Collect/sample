@@ -1,0 +1,100 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+    repositories {
+        google()
+
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.3.0'
+        classpath 'com.google.gms:google-services:4.3.13'
+        classpath 'org.jacoco:org.jacoco.core:0.8.8'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.7.10"
+        classpath "org.jlleitschuh.gradle:ktlint-gradle:10.1.0"
+        classpath "com.github.ben-manes:gradle-versions-plugin:0.42.0"
+        classpath "androidx.navigation:navigation-safe-args-gradle-plugin:2.5.1"
+    }
+}
+
+plugins {
+    id 'io.github.gradle-nexus.publish-plugin' version "1.2.0"
+}
+
+apply from: 'secrets.gradle'
+
+allprojects {
+    repositories {
+        // Needs to go first to get specialty libraries https://stackoverflow.com/a/48438866/137744
+        google()
+
+        mavenCentral()
+
+        maven { url 'https://oss.sonatype.org/content/groups/public' }
+        maven { url 'https://jitpack.io' }
+        maven {
+            url 'https://staging.dev.medicmobile.org/_couch/maven-repo'
+            metadataSources { artifact() }
+        }
+
+        maven {
+            url 'https://api.mapbox.com/downloads/v2/releases/maven'
+            authentication {
+                basic(BasicAuthentication)
+            }
+            credentials {
+                username = "mapbox"
+                password = getSecrets().getProperty('MAPBOX_DOWNLOADS_TOKEN', '')
+            }
+        }
+
+        // Local repo for dependencies that only existed in the defunct JCenter repo
+        maven {
+          url "${rootDir}/jcenter-local-m2"
+        }
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions {
+            freeCompilerArgs = ['-Xjvm-default=all']
+        }
+    }
+}
+
+configurations.all {
+    transitive = true
+}
+
+task checkCode(type: GradleBuild) {
+    tasks = ['pmd', 'ktlintCheck', 'checkstyle', 'lintDebug']
+}
+
+task checkTests(type: GradleBuild) {
+    tasks = ['testDebugUnitTest', 'connectedDebugAndroidTest']
+}
+
+task checkAll(type: GradleBuild) {
+    tasks = ['checkCode', 'checkTests']
+}
+
+task checkFeature(type: GradleBuild) {
+    tasks = ["connectedDebugAndroidTest"]
+    startParameter.projectProperties = ["android.testInstrumentationRunnerArguments.package": "org.odk.collect.android.feature"]
+}
+
+task checkRegression(type: GradleBuild) {
+    tasks = ["connectedDebugAndroidTest"]
+    startParameter.projectProperties = ["android.testInstrumentationRunnerArguments.package": "org.odk.collect.android.regression"]
+}
+
+task checkInstrumented(type: GradleBuild) {
+    tasks = ["connectedDebugAndroidTest"]
+    startParameter.projectProperties = ["android.testInstrumentationRunnerArguments.package": "org.odk.collect.android.instrumented"]
+}
+
+apply plugin: 'io.github.gradle-nexus.publish-plugin'
+apply from: "${rootDir}/scripts/publish-root.gradle"
